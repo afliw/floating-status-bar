@@ -59,14 +59,12 @@ Func Main()
 	Global $mainGui = CreateGui()
 	CreatePropertyLabels($mainGui)
 
-	Global $pingPid = IsPropertyEnabled("Lat") ? StartPing() : Null
-
 	While 1
 		$networkData = (IsPropertyEnabled("DL") Or IsPropertyEnabled("UL")) ? GetNetworkData() : Null
 		For $prop = 0 To UBound($properties) - 1
 			If Not $activeProperties[$prop] Then ContinueLoop
-
-			$param = ($prop == 3 Or $prop == 4) ? $networkData : $prop == 5 ? $pingPid : Null
+			ConsoleWrite(@CRLF & $properties[$prop] & @CRLF)
+			$param = ($prop == 3 Or $prop == 4) ? $networkData : Null
 			Dim $thresholds = [$propertiesThresholds[$prop][0], $propertiesThresholds[$prop][1]]
 
 			$returnedValue = Call($properties[$prop], $thresholds, $param)
@@ -158,8 +156,10 @@ Func UL($thresholds, $networkData)
 	Return $returnArr
 EndFunc
 
-Func Lat($thresholds, $pingPid)
-	$currentValue = GetLatency($pingPid)
+Func Lat($thresholds, $null)
+	ConsoleWrite(@CRLF & "Running LAT Function." & @CRLF)
+	$currentValue = Ping($CFG_LATENCYHOST)
+	$currentValue = $currentValue <> 0 ? $currentValue : -1
 	$color = ($currentValue >= $thresholds[1] Or $currentValue == -1 ) ?  $CFG_COLOR_HIGH : $currentValue >= $thresholds[0] ?  $CFG_COLOR_MID : $CFG_COLOR_NORMAL
 	$unit = $currentValue > 999 ? "sec" : "ms"
 	$currentValue = $currentValue == -1 ? "Time out" : ($currentValue > 999 ? Round($currentValue / 1000) : $currentValue) & $unit
@@ -285,26 +285,6 @@ Func IniToBool($value)
 	If IsBool($value) Then Return $value
 	If StringIsInt($value) Then Return $value <> "0"
 	If IsString($value) Then Return StringLower($value) == "true"
-EndFunc
-
-Func GetLatency($pingPid)
-	$output = StdoutRead($pingPid)
-	If Not $output Then Return -1
-	$latency = StringRegExp($output,"=([0-9]+)ms",1)
-	$latency = UBound($latency) > 0 ? $latency[0] : -1
-	Return $latency * 1
-EndFunc
-
-Func StartPing()
-	Return Run(@ComSpec & " /c " & "ping "&$CFG_LATENCYHOST&" -t", "", @SW_HIDE,$STDOUT_CHILD)
-EndFunc
-
-Func StopPing()
-	$childProcesses = GetChildProcess($pingPid)
-	If ProcessExists($pingPid) Then ProcessClose($pingPid)
-	For $child In $childProcesses
-		If ProcessExists($child) Then ProcessClose($child)
-	Next
 EndFunc
 
 Func QueryWMI($namespace, $class, $property, $condition = "")
